@@ -62,6 +62,7 @@
 #include "stun/usages/ice.h"
 
 #ifdef HAVE_GUPNP
+#undef HAVE_GUPNP
 #include <libgupnp-igd/gupnp-simple-igd-thread.h>
 #endif
 

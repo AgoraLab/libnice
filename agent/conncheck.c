@@ -507,7 +507,7 @@ static gboolean priv_conn_keepalive_retransmissions_tick (gpointer pointer)
               "peer probably lost connection", pair->keepalive.agent);
           agent_signal_component_state_change (pair->keepalive.agent,
               pair->keepalive.stream_id, pair->keepalive.component_id,
-              NICE_COMPONENT_STATE_FAILED);
+              NICE_COMPONENT_STATE_FAILED_KEEPALIVE_TIMEOUT);
         }
         break;
       }
@@ -1175,7 +1175,7 @@ static void priv_update_check_list_failed_components (NiceAgent *agent, Stream *
       agent_signal_component_state_change (agent, 
 					   stream->id,
 					   (c + 1), /* component-id */
-					   NICE_COMPONENT_STATE_FAILED);
+					   NICE_COMPONENT_STATE_FAILED_ALL_CONNCHECK_FAILED);
   }
 }
 
@@ -1211,7 +1211,8 @@ static void priv_update_check_list_state_for_ready (NiceAgent *agent, Stream *st
     }
   }
 
-  if (nominated > 0) {
+  //if (nominated > 0) {
+  if (0) {
     /* Only go to READY if no checks are left in progress. If there are
      * any that are kept, then this function will be called again when the
      * conncheck tick timer finishes them all */
@@ -1800,7 +1801,7 @@ static gboolean priv_schedule_triggered_check (NiceAgent *agent, Stream *stream,
 	  p->remote == remote_cand &&
 	  p->local->sockptr == local_socket) {
 
-	nice_debug ("Agent %p : Found a matching pair %p for triggered check.", agent, p);
+	nice_debug ("Agent %p : Found a matching pair %p state %d for triggered check.\n", agent, p, p->state);
 	
 	if (p->state == NICE_CHECK_WAITING ||
 	    p->state == NICE_CHECK_FROZEN)
@@ -1826,6 +1827,7 @@ static gboolean priv_schedule_triggered_check (NiceAgent *agent, Stream *stream,
 	     same state update as for processing responses to our own checks */
 	  priv_update_check_list_state_for_ready (agent, stream, component);
 
+	  agent_signal_component_state_change (agent, stream->id, component->id, NICE_COMPONENT_STATE_READY);
 	  /* note: to take care of the controlling-controlling case in
 	   *       aggressive nomination mode, send a new triggered
 	   *       check to nominate the pair */
@@ -1901,7 +1903,6 @@ static void priv_reply_to_conn_check (NiceAgent *agent, Stream *stream, Componen
 	     rcand, component->id,
 	     (int)use_candidate);
   }
-
   nice_socket_send (socket, toaddr, rbuf_len, (const gchar*)rbuf);
   
   if (rcand) {

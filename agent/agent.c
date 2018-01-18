@@ -986,7 +986,7 @@ static void priv_pseudo_tcp_error (NiceAgent *agent, Stream *stream,
 {
   if (component->tcp) {
     agent_signal_component_state_change (agent, stream->id,
-        component->id, NICE_COMPONENT_STATE_FAILED);
+        component->id, NICE_COMPONENT_STATE_FAILED_PSEUDOTCP_ERROR);
     priv_detach_stream_component (stream, component);
   }
   priv_destroy_component_tcp (component);
@@ -1341,7 +1341,7 @@ void agent_signal_component_state_change (NiceAgent *agent, guint stream_id, gui
     return;
   }
 
-  if (component->state != state && state < NICE_COMPONENT_STATE_LAST) {
+  if (state < NICE_COMPONENT_STATE_LAST) {
     nice_debug ("Agent %p : stream %u component %u STATE-CHANGE %s -> %s.", agent,
         stream_id, component_id, component_state_to_string (component->state),
         component_state_to_string (state));
