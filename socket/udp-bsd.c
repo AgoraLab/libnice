@@ -61,6 +61,8 @@ static gint socket_recv (NiceSocket *sock, NiceAddress *from,
     guint len, gchar *buf);
 static gboolean socket_send (NiceSocket *sock, const NiceAddress *to,
     guint len, const gchar *buf);
+static gint socket_send_message (NiceSocket *sock, const NiceAddress *to,
+    guint len, const gchar *buf, gchar *error);
 static gboolean socket_is_reliable (NiceSocket *sock);
 
 struct UdpBsdSocketPrivate
@@ -140,6 +142,7 @@ nice_udp_bsd_socket_new (NiceAddress *addr)
 
   sock->fileno = gsock;
   sock->send = socket_send;
+  sock->send_message = socket_send_message;
   sock->recv = socket_recv;
   sock->is_reliable = socket_is_reliable;
   sock->close = socket_close;
@@ -218,6 +221,44 @@ socket_send (NiceSocket *sock, const NiceAddress *to,
   sent = g_socket_send_to (sock->fileno, priv->gaddr, buf, len, NULL, NULL);
 
   return sent == (ssize_t)len;
+}
+
+static gint
+socket_send_message (NiceSocket *sock, const NiceAddress *to,
+    guint len, const gchar *buf, gchar *error)
+{
+  struct UdpBsdSocketPrivate *priv = sock->priv;
+  ssize_t sent;
+
+  if (!nice_address_is_valid (&priv->niceaddr) ||
+      !nice_address_equal (&priv->niceaddr, to)) {
+    struct sockaddr_storage sa;
+    GSocketAddress *gaddr;
+
+    if (priv->gaddr)
+      g_object_unref (priv->gaddr);
+    nice_address_copy_to_sockaddr (to, (struct sockaddr *)&sa);
+    gaddr = g_socket_address_new_from_native (&sa, sizeof(sa));
+    if (gaddr == NULL)
+      return -1;
+    priv->gaddr = gaddr;
+    priv->niceaddr = *to;
+  }
+
+  GError *child_error = NULL;
+  sent = g_socket_send_to (sock->fileno, priv->gaddr, buf, len, NULL, &child_error);
+  if (sent <= 0) {
+    if (g_error_matches (child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)) {
+      nice_debug ("udp_bsd socket %p: error would block. error %s", sock, child_error->message);
+    } else {
+      nice_debug ("%s: udp-bsd socket %p: error: %s", G_STRFUNC, sock,
+          child_error->message);
+    }
+    memcpy(error, child_error->message, strlen(child_error->message));
+  }
+  g_error_free (child_error);
+
+  return sent;
 }
 
 static gboolean

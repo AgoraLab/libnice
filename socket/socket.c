@@ -56,6 +56,18 @@ nice_socket_send (NiceSocket *sock, const NiceAddress *to,
   return sock->send (sock, to, len, buf);
 }
 
+gint
+nice_socket_send_message (NiceSocket *sock, const NiceAddress *to,
+    guint len, const gchar *buf, gchar *error)
+{
+  if (sock->send_message != NULL) {
+    return sock->send_message (sock, to, len, buf, error);
+  } else {
+    memcpy(error, "send function is NULL.", strlen("send function is NULL."));
+    return -1;
+  }
+}
+
 gboolean
 nice_socket_is_reliable (NiceSocket *sock)
 {

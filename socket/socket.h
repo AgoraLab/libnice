@@ -62,6 +62,8 @@ struct _NiceSocket
       gchar *buf);
   gboolean (*send) (NiceSocket *sock, const NiceAddress *to, guint len,
       const gchar *buf);
+  gint (*send_message) (NiceSocket *sock, const NiceAddress *to, guint len,
+      const gchar *buf, gchar *error);
   gboolean (*is_reliable) (NiceSocket *sock);
   void (*close) (NiceSocket *sock);
   void *priv;
@@ -74,6 +76,10 @@ nice_socket_recv (NiceSocket *sock, NiceAddress *from, guint len, gchar *buf);
 gboolean
 nice_socket_send (NiceSocket *sock, const NiceAddress *to,
   guint len, const gchar *buf);
+
+gint
+nice_socket_send_message (NiceSocket *sock, const NiceAddress *to,
+  guint len, const gchar *buf, gchar *error);
 
 gboolean
 nice_socket_is_reliable (NiceSocket *sock);

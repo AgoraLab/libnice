@@ -1797,7 +1797,11 @@ nice_agent_gather_candidates (
       NiceAddress *addr = nice_address_new ();
 
       if (nice_address_set_from_string (addr, item->data)) {
-        local_addresses = g_slist_append (local_addresses, addr);
+	if (nice_address_is_private(addr)) {
+          nice_address_free(addr);
+        } else {
+          local_addresses = g_slist_append (local_addresses, addr);
+        }
       } else {
         nice_address_free (addr);
       }
@@ -2434,6 +2438,62 @@ nice_agent_send (
   return ret;
 }
 
+NICEAPI_EXPORT gint
+nice_agent_send_message (
+  NiceAgent *agent,
+  guint stream_id,
+  guint component_id,
+  guint len,
+  const gchar *buf,
+  gchar *error)
+{
+  Stream *stream;
+  Component *component;
+  gint ret = -1;
+
+  agent_lock();
+
+  if (!agent_find_component (agent, stream_id, component_id,
+          &stream, &component)) {
+    goto done;
+  }
+
+  if (component->tcp != NULL) {
+    ret = pseudo_tcp_socket_send (component->tcp, buf, len);
+    adjust_tcp_clock (agent, stream, component);
+    /*
+    if (ret == -1 &&
+        pseudo_tcp_socket_get_error (component->tcp) != EWOULDBLOCK) {
+        }
+    */
+    /* In case of -1, the error is either EWOULDBLOCK or ENOTCONN, which both
+       need the user to wait for the reliable-transport-writable signal */
+  } else if(agent->reliable) {
+    nice_debug ("Trying to send on a pseudo tcp FAILED component");
+    goto done;
+  } else if (component->selected_pair.local != NULL) {
+    NiceSocket *sock;
+    NiceAddress *addr;
+
+#ifndef NDEBUG
+    gchar tmpbuf[INET6_ADDRSTRLEN];
+    nice_address_to_string (&component->selected_pair.remote->addr, tmpbuf);
+
+    nice_debug ("Agent %p : s%d:%d: sending %d bytes to [%s]:%d", agent, stream_id, component_id,
+        len, tmpbuf,
+        nice_address_get_port (&component->selected_pair.remote->addr));
+#endif
+
+    sock = component->selected_pair.local->sockptr;
+    addr = &component->selected_pair.remote->addr;
+    ret = nice_socket_send_message (sock, addr, len, buf, error);
+    goto done;
+  }
+
+ done:
+  agent_unlock();
+  return ret;
+}
 
 NICEAPI_EXPORT GSList *
 nice_agent_get_local_candidates (
@@ -2966,6 +3026,22 @@ _priv_set_socket_tos (NiceAgent *agent, NiceSocket *sock, gint tos)
 #endif
 }
 
+void
+_priv_set_socket_buffer (NiceAgent *agent, NiceSocket *sock)
+{
+  int n = 4 * 1024 * 1024;
+  if (setsockopt(g_socket_get_fd (sock->fileno), SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) == -1) {
+    // deal with failure, or ignore if you can live with the default size
+    nice_debug ("Agent %p: Failed to enlarge the udp receive buffer to 4 MB: %s", agent,
+        g_strerror(errno));
+  }
+
+  if (setsockopt(g_socket_get_fd (sock->fileno), SOL_SOCKET, SO_SNDBUF, &n, sizeof(n)) == -1) {
+    // deal with failure, or ignore if you can live with the default size
+    nice_debug ("Agent %p: Failed to enlarge the udp send buffer to 4 MB: %s", agent,
+        g_strerror(errno));
+  }
+}
 
 NICEAPI_EXPORT void
 nice_agent_set_stream_tos (NiceAgent *agent,
