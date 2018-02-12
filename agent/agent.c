@@ -1797,11 +1797,7 @@ nice_agent_gather_candidates (
       NiceAddress *addr = nice_address_new ();
 
       if (nice_address_set_from_string (addr, item->data)) {
-	if (nice_address_is_private(addr)) {
-          nice_address_free(addr);
-        } else {
-          local_addresses = g_slist_append (local_addresses, addr);
-        }
+        local_addresses = g_slist_append (local_addresses, addr);
       } else {
         nice_address_free (addr);
       }
