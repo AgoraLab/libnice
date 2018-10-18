@@ -1968,6 +1968,10 @@ static CandidateCheckPair *priv_add_peer_reflexive_pair (NiceAgent *agent, guint
   pair->local = local_cand;
   pair->remote = parent_pair->remote;
   pair->state = NICE_CHECK_DISCOVERED;
+  if(parent_pair->remote == NULL) {
+    g_slice_free(CandidateCheckPair, pair);
+    return NULL;
+  }
   nice_debug ("Agent %p : pair %p state DISCOVERED", agent, pair);
   g_snprintf (pair->foundation, NICE_CANDIDATE_PAIR_MAX_FOUNDATION, "%s:%s",
       local_cand->foundation, parent_pair->remote->foundation);
