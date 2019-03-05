@@ -1961,7 +1961,6 @@ static CandidateCheckPair *priv_add_peer_reflexive_pair (NiceAgent *agent, guint
   CandidateCheckPair *pair = g_slice_new0 (CandidateCheckPair);
   Stream *stream = agent_find_stream (agent, stream_id);
 
-  stream->conncheck_list = g_slist_append (stream->conncheck_list, pair);
   pair->agent = agent;
   pair->stream_id = stream_id;
   pair->component_id = component_id;;
@@ -1984,6 +1983,8 @@ static CandidateCheckPair *priv_add_peer_reflexive_pair (NiceAgent *agent, guint
   pair->nominated = FALSE;
   pair->controlling = agent->controlling_mode;
   nice_debug ("Agent %p : added a new peer-discovered pair with foundation of '%s'.",  agent, pair->foundation);
+
+  stream->conncheck_list = g_slist_append (stream->conncheck_list, pair);
 
   return pair;
 }
